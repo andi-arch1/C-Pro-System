@@ -8,7 +8,7 @@ uploaded_file = st.file_uploader("📥 Upload file Excel kamu", type=["xlsx"])
 
 if uploaded_file:
     try:
-        df = pd.read_excel(uploaded_file)
+        df = pd.read_excel(uploaded_file, dtype=str)
         st.success("✅ File berhasil dimuat!")
         st.subheader("🔍 Pratinjau Data")
         st.dataframe(df.head())
