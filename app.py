@@ -133,8 +133,7 @@ if page == "📊 Monitoring Setup User":
             file_name="hasil_monitoring.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-
-# ====== PAGE 2: RANDOM SAMPLING ======
+# ====== PAGE 2: RANDOM SAMPLING======
 elif page == "🎯 Random Sampling dari Excel":
     st.subheader("📥 Random Sampling dari Excel")
     st.markdown("""Upload file Excel yang ingin Anda gunakan untuk **Random Sampling** berdasarkan kolom yang dipilih.""")
@@ -148,15 +147,15 @@ elif page == "🎯 Random Sampling dari Excel":
             st.subheader("🔍 Pratinjau Data")
             st.dataframe(df.head())
 
-            # Pilih kolom untuk grouping
-            group_col = st.selectbox("🧩 Pilih kolom pengelompokan (group by):", options=df.columns)
+            # Pilih kolom untuk grouping (boleh lebih dari 1)
+            group_cols = st.multiselect("🧩 Pilih kolom pengelompokan (group by):", options=df.columns)
 
             # Pilih jumlah sample per grup
             n_sample = st.slider("🎯 Jumlah sample per grup", min_value=1, max_value=100, value=6)
 
-            if st.button("🚀 Jalankan Random Sampling"):
+            if group_cols and st.button("🚀 Jalankan Random Sampling"):
                 sampled_df = (
-                    df.groupby(group_col, group_keys=False)
+                    df.groupby(group_cols, group_keys=False)
                       .apply(lambda x: x.sample(n=min(n_sample, len(x)), random_state=42))
                       .reset_index(drop=True)
                 )
