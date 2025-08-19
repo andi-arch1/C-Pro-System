@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from datetime import datetime
 
 st.set_page_config(page_title="C-PRO Multi Page App", layout="wide")
 
@@ -15,7 +16,7 @@ if page == "📊 Monitoring Setup User":
     st.title("📊 Monitoring Setup User per Branch & LOB")
 
     # Upload file pertama (data branch)
-    file1 = st.file_uploader("Upload File Branch (BRANCH_ID, BRANCH_NAME, AREA)", type=["xlsx"])
+    file1 = st.file_uploader("Upload File BRANCHLIST (BRANCH_ID, BRANCH_NAME, AREA)", type=["xlsx"])
     # Upload file kedua (data realisasi)
     file2 = st.file_uploader("Upload File Realisasi Setup (BRANCH_ID, LOB, PIC)", type=["xlsx"])
 
@@ -36,7 +37,7 @@ if page == "📊 Monitoring Setup User":
 
         # Expand branch × LOB
         df_expected = pd.DataFrame([
-            {"BRANCH_ID": row["BRANCH_ID"], "BRANCH_NAME": row["BRANCH_NAME"], "AREA": row["AREA"], "LOB": lob}
+            {"BRANCH_ID": row["BRANCH_ID"], "BRANCH_NAME": row["BRANCH_NAME"], "AREA": row["AREA"], "LINE_OF_BUSINESS": lob}
             for _, row in df_branch.iterrows()
             for lob in lob_list
         ])
@@ -44,17 +45,17 @@ if page == "📊 Monitoring Setup User":
         # Join dengan data realisasi
         df_merge = pd.merge(
             df_expected,
-            df_real[["BRANCH_ID", "LOB", "PIC"]],
-            on=["BRANCH_ID", "LOB"],
+            df_real[["BRANCH_ID", "LINE_OF_BUSINESS", "EMPLOYEE_NUMBER"]],
+            on=["BRANCH_ID", "LINE_OF_BUSINESS"],
             how="left"
         )
 
         # Tentukan status
-        df_merge["Status"] = df_merge["PIC"].apply(lambda x: "Sudah Setup" if pd.notna(x) else "Belum Setup")
+        df_merge["Status"] = df_merge["EMPLOYEE_NUMBER"].apply(lambda x: "Sudah Setup" if pd.notna(x) else "Belum Setup")
 
         # Filter UI - dibuat lebih rapi dengan columns
         with st.expander("🔍 Filter Data", expanded=True):
-            col1, col2, col3 = st.columns(3)
+            col1, col2, col3, col4 = st.columns(4)
             with col1:
                 branch_filter = st.multiselect(
                     "🏢 Filter Branch",
@@ -73,6 +74,12 @@ if page == "📊 Monitoring Setup User":
                     options=lob_list,
                     placeholder="Pilih LOB..."
                 )
+            with col4:
+                setup_filter = st.multiselect(
+                    "Filter Status",
+                    options=sorted(df_merge["Status"].unique()),
+                    placeholder="Pilih Status..."
+                )
 
         # Apply filters
         filtered_df = df_merge.copy()
@@ -81,7 +88,9 @@ if page == "📊 Monitoring Setup User":
         if AREA_filter:
             filtered_df = filtered_df[filtered_df["AREA"].isin(AREA_filter)]
         if lob_filter:
-            filtered_df = filtered_df[filtered_df["LOB"].isin(lob_filter)]
+            filtered_df = filtered_df[filtered_df["LINE_OF_BUSINESS"].isin(lob_filter)]
+        if setup_filter:
+            filtered_df = filtered_df[filtered_df["Status"].isin(setup_filter)]
 
         # Summary untuk plot
         AREA_summary = filtered_df.groupby(["AREA", "Status"]).size().reset_index(name="Count")
@@ -98,6 +107,9 @@ if page == "📊 Monitoring Setup User":
             labels={"Count": "Jumlah", "AREA": "Area"}
         )
         st.plotly_chart(fig_bar, use_container_width=True)
+
+        st.subheader("📋 Tabel Data Hasil Setup")
+        st.dataframe(filtered_df, use_container_width=True)
 
         # Grafik Pie total status
         status_summary = filtered_df["Status"].value_counts().reset_index()
@@ -126,14 +138,15 @@ if page == "📊 Monitoring Setup User":
             return output.getvalue()
 
         excel_export = to_excel(filtered_df, AREA_summary, status_summary)
-
+        today_str = datetime.now().strftime("%d%b%Y")
         st.download_button(
             label="📥 Download Hasil Monitoring (.xlsx)",
             data=excel_export,
-            file_name="hasil_monitoring.xlsx",
+            file_name=f"hasil_monitoring{today_str}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-# ====== PAGE 2: RANDOM SAMPLING======
+
+# ====== PAGE 2: RANDOM SAMPLING ======
 elif page == "🎯 Random Sampling dari Excel":
     st.subheader("📥 Random Sampling dari Excel")
     st.markdown("""Upload file Excel yang ingin Anda gunakan untuk **Random Sampling** berdasarkan kolom yang dipilih.""")
@@ -170,12 +183,13 @@ elif page == "🎯 Random Sampling dari Excel":
                     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
                         df.to_excel(writer, index=False, sheet_name='Sampled')
                     return output.getvalue()
-
+                
+                today_str = datetime.now().strftime("%d%b%Y")
                 excel_data = convert_df_to_excel(sampled_df)
                 st.download_button(
                     label="📥 Download Hasil Sampling (.xlsx)",
                     data=excel_data,
-                    file_name="hasil_sampling.xlsx",
+                    file_name=f"hasil_sampling{today_str}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
@@ -183,6 +197,7 @@ elif page == "🎯 Random Sampling dari Excel":
             st.error(f"❌ Gagal membaca file: {e}")
     else:
         st.info("📝 Silakan upload file Excel terlebih dahulu.")
+
 
 # ====== PAGE 3: KOMPARASI PROGRESS ======
 elif page == "📈 Komparasi Progress":
