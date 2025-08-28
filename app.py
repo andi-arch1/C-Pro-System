@@ -8,7 +8,7 @@ st.set_page_config(page_title="C-PRO Multi Page App", layout="wide")
 # Sidebar untuk navigasi halaman
 page = st.sidebar.radio(
     "📌 Pilih Halaman",
-    ["📊 Monitoring Setup User", "🎯 Random Sampling dari Excel", "📈 Komparasi Progress"]
+    ["📊 Monitoring Setup User", "🎯 Random Sampling dari Excel", "📈 Komparasi Progress", "🗂 Monitoring WP Progress"]
 )
 
 # ====== PAGE 1: MONITORING SETUP USER ======
@@ -260,4 +260,184 @@ elif page == "📈 Komparasi Progress":
         # Tampilkan tabel ringkas
         st.dataframe(df_compare)
 
+# ====== PAGE 4: MONITORING WP PROGRESS ======
+elif page == "🗂 Monitoring WP Progress":
+    st.title("🗂 WPProgress Reporting")
+
+    # Upload files
+    branch_file = st.file_uploader("Upload Branch Excel", type=["xlsx"])
+    wp_file = st.file_uploader("Upload WP Excel", type=["xlsx"])
+    progress_file = st.file_uploader("Upload WPProgress Excel", type=["xlsx"])
+
+    if branch_file and wp_file and progress_file:
+        # Load data
+        df_branch = pd.read_excel(branch_file)
+        df_wp = pd.read_excel(wp_file)
+        df_progress = pd.read_excel(progress_file)
+
+        st.subheader("Preview Data")
+        st.write("Branch", df_branch.head())
+        st.write("WP", df_wp.head())
+        st.write("WPProgress", df_progress.head())
+
+        # --- Cross Join Branch × WP ---
+        df_branch["key"] = 1
+        df_wp["key"] = 1
+        df_cross = pd.merge(df_branch, df_wp, on="key").drop("key", axis=1)
+
+        # --- Merge dengan WPProgress (lookup 4 keys) ---
+        merged = pd.merge(
+            df_cross,
+            df_progress,
+            on=["BRANCH_ID", "LINE_OF_BUSINESS", "SUB_WP", "PROCESS", "COMPLIANCE_INDICATOR"],
+            how="left"
+        )
+
+        # ---------- BERSIHKAN DUPLIKAT KOLUMN (hilangkan _x/_y) ----------
+        def coalesce_cols(df, bases):
+            for base in bases:
+                cx, cy = f"{base}_x", f"{base}_y"
+                if cx in df.columns and cy in df.columns:
+                    df[base] = df[cx].combine_first(df[cy])
+                    df.drop(columns=[cx, cy], inplace=True)
+                elif cx in df.columns:
+                    df.rename(columns={cx: base}, inplace=True)
+                elif cy in df.columns:
+                    df.rename(columns={cy: base}, inplace=True)
+
+        # satukan kolom yang berpotensi dobel
+        coalesce_cols(merged, ["AREA", "COMPANY_ID", "BRANCH_NAME", "EVIDENCE_FILE_NAME"])
+
+        # ---------- BENTUK DATA TAMPILAN SESUAI PERMINTAAN ----------
+        desired_cols = [
+            "BRANCH_ID", "BRANCH_NAME", "AREA",
+            "COMPANY_ID",
+            "LINE_OF_BUSINESS", "SUB_WP", "PROCESS",
+            "COMPLIANCE_INDICATOR", "INSPECTION_CATEGORY",
+            "PIC", "SCORE_COMPLIANCE_INDICATOR", "TOTAL_SAMPLE",
+            "SCORE", "STATUS", "EVIDENCE_FILE_NAME"
+        ]
+
+        for c in desired_cols:
+            if c not in merged.columns:
+                merged[c] = pd.NA
+
+        cleaned = merged[desired_cols].copy()
+
+        # ---------- FILTER UI ----------
+        st.subheader("Filter Data")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            selected_area = st.multiselect(
+                "Pilih Area",
+                options=sorted(cleaned["AREA"].dropna().unique()),
+                default=sorted(cleaned["AREA"].dropna().unique())
+            )
+
+        with col2:
+            selected_branch = st.multiselect(
+                "Pilih Branch",
+                options=sorted(cleaned[cleaned["AREA"].isin(selected_area)]["BRANCH_NAME"].dropna().unique()),
+                default=sorted(cleaned[cleaned["AREA"].isin(selected_area)]["BRANCH_NAME"].dropna().unique())
+            )
+
+        with col3:
+            selected_lob = st.multiselect(
+                "Pilih Line of Business",
+                options=sorted(cleaned[cleaned["BRANCH_NAME"].isin(selected_branch)]["LINE_OF_BUSINESS"].dropna().unique()),
+                default=sorted(cleaned[cleaned["BRANCH_NAME"].isin(selected_branch)]["LINE_OF_BUSINESS"].dropna().unique())
+            )
+
+        # Terapkan filter ke data
+        filtered_df = cleaned[
+            (cleaned["AREA"].isin(selected_area)) &
+            (cleaned["BRANCH_NAME"].isin(selected_branch)) &
+            (cleaned["LINE_OF_BUSINESS"].isin(selected_lob))
+        ]
+
+        st.subheader("Hasil Gabungan (Kolom Terpilih)")
+        st.caption(f"Menampilkan {len(filtered_df):,} baris setelah filter.")
+        st.dataframe(filtered_df.head(200), use_container_width=True)
+
+        # ---------- GRAFIK ----------
+        # 1) Jumlah Status Submit
+        status_counts = status_counts = (
+            filtered_df["STATUS"]
+            .dropna()  # pastikan buang null
+            .astype(str)  # jaga2 kalau ada yg bukan string
+            .str.strip()  # hapus spasi kanan/kiri
+            .value_counts()
+            .reset_index())
+        status_counts.columns = ["STATUS", "JUMLAH"]
+        fig_pie = px.pie(
+            status_counts,
+            names="STATUS", values="JUMLAH",
+            title="Distribusi Status Submit",
+            hole=0.3
+        )
+
+        # 2) Rata-rata SCORE per LOB
+        score_avg = filtered_df.groupby("LINE_OF_BUSINESS", dropna=False)["SCORE"].mean().reset_index()
+        fig_bar = px.bar(
+            score_avg,
+            x="LINE_OF_BUSINESS", y="SCORE", color="LINE_OF_BUSINESS",
+            title="Rata-rata Nilai (SCORE) per Line of Business",
+            text_auto=True
+        )
+        fig_bar.update_layout(xaxis_tickangle=-45)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            st.plotly_chart(fig_pie, use_container_width=True)
+        with col2:
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        # 3) Stacked bar per AREA (tetap seperti semula)
+        area_status_summary = (
+            filtered_df.groupby(["AREA", "STATUS"], dropna=False)
+            .size()
+            .reset_index(name="Jumlah")
+        )
+        fig_area = px.bar(
+            area_status_summary,
+            x="AREA", y="Jumlah", color="STATUS",
+            title="Distribusi Submit vs Tidak per Area",
+            barmode="stack", text="Jumlah",
+            color_discrete_map={
+                "SAVED": "#b41f1f",   # merah
+                "SUBMIT": "#02ba0b",  # oranye
+                "0": "#ffffff"        # putih (untuk nilai kosong/0 kalau ada)
+                }
+        )
+        st.plotly_chart(fig_area, use_container_width=True)
+
+        # 3) Stacked bar per AREA
+        area_progress = (
+            filtered_df.groupby("AREA")
+            .apply(lambda x: (x["STATUS"].eq("SUBMIT").sum() / len(x)) * 100)
+            .reset_index(name="Persentase")
+        )
+
+        fig_area = px.bar(
+            area_progress,
+            x="AREA", y="Persentase",
+            title="Persentase Pengerjaan per Area (Filtered)",
+            text="Persentase",
+            color="Persentase",
+            color_continuous_scale="Blues"
+        )
+        fig_area.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
+
+        st.plotly_chart(fig_area, use_container_width=True, key="area_progress_chart")
+        # ---------- DOWNLOAD ----------
+        output_file = "hasil_gabungan_filtered.csv"
+        filtered_df.to_csv(output_file, index=False, encoding="utf-8-sig")
+        with open(output_file, "rb") as f:
+            st.download_button(
+                label="Download Hasil Gabungan (CSV)",
+                data=f,
+                file_name="hasil_gabungan.csv",
+                mime="text/csv"
+            )
 
