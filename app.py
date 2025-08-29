@@ -474,7 +474,36 @@ elif page == "🗂 Monitoring WP Progress":
 
             st.plotly_chart(fig_area, use_container_width=True, key="area_progress_chart")
 
-        # ---------- DOWNLOAD ----------
+            # ---------- TABEL PROGRESS PER BRANCH ----------
+        if not filtered_df.empty:
+            branch_progress = (
+                filtered_df.groupby("BRANCH_NAME")
+                .apply(lambda x: pd.Series({
+                    "Jumlah Data": len(x),
+                    "Jumlah SUBMIT": x["STATUS"].eq("SUBMIT").sum(),
+                    "Persentase (%)": (x["STATUS"].eq("SUBMIT").sum() / len(x)) * 100
+                }))
+                .reset_index()
+            )
+            
+            st.subheader("📊 Progress Pengerjaan per Branch")
+
+            # Styling function
+            def highlight_progress(val):
+                if val == 100:
+                    color = 'background-color: green; color: black; font-weight: bold;'
+                elif val >= 50:
+                    color = 'background-color: orange; color: white;'
+                else:
+                    color = 'background-color: red; color: white;'
+                return color
+
+            styled_table = branch_progress.style.applymap(
+                highlight_progress, subset=["Persentase (%)"]
+            ).format({"Persentase (%)": "{:.2f}%"})
+
+            st.dataframe(styled_table, use_container_width=True)
+            # ---------- DOWNLOAD ----------
         output_file = "hasil_gabungan_filtered.csv"
         filtered_df.to_csv(output_file, index=False, encoding="utf-8-sig")
         with open(output_file, "rb") as f:
