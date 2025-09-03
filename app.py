@@ -8,8 +8,56 @@ st.set_page_config(page_title="C-PRO Multi Page App", layout="wide")
 # Sidebar untuk navigasi halaman
 page = st.sidebar.radio(
     "📌 Pilih Halaman",
-    ["📊 Monitoring Setup User", "🎯 Random Sampling dari Excel", "📈 Komparasi Progress", "🗂 Monitoring WP Progress"]
+    ["📂 File Repository" , "📊 Monitoring Setup User", "🎯 Random Sampling dari Excel", "📈 Komparasi Progress", "🗂 Monitoring WP Progress"]
 )
+
+# ====== PAGE 0: FILE REPOSITORY ======
+if page == "📂 File Repository":
+    st.title("📂 File Repository (Upload Sekali, Pakai di Semua Menu)")
+
+    # Upload Branch File
+    branch_repo = st.file_uploader("📥 Upload Branch File", type=["xlsx"], key="repo_branch")
+    if branch_repo:
+        st.success("✅ Branch file tersimpan di repository")
+
+    # Upload Workingpaper File
+    wp_repo = st.file_uploader("📥 Upload Workingpaper File", type=["xlsx"], key="repo_wp")
+    if wp_repo:
+        st.success("✅ Workingpaper file tersimpan di repository")
+
+    # Upload Cover Central File
+    central_repo = st.file_uploader("📥 Upload Cover Central File", type=["xlsx"], key="repo_central")
+    if central_repo:
+        st.success("✅ Cover Central file tersimpan di repository")
+
+    # Preview file yang sudah tersimpan
+    st.subheader("📋 File Tersimpan")
+    if st.session_state.get("repo_branch") is not None:
+        st.write("📌 Branch File:", st.session_state["repo_branch"].name)
+    if st.session_state.get("repo_wp") is not None:
+        st.write("📌 Workingpaper File:", st.session_state["repo_wp"].name)
+    if st.session_state.get("repo_central") is not None:
+        st.write("📌 Cover Central File:", st.session_state["repo_central"].name)
+
+    # ====== Tambahan: Download Template File ======
+    st.subheader("⬇️ Download Template File")
+    files_to_download = {
+        "📌 Branch File": "data/branch_template.xlsx",
+        "📌 Workingpaper File": "data/wp_template.xlsx",
+        "📌 Cover Central File": "data/central_template.xlsx"
+    }
+
+    for label, path in files_to_download.items():
+        if os.path.exists(path):
+            with open(path, "rb") as f:
+                st.download_button(
+                    label=f"⬇️ Download {label}",
+                    data=f,
+                    file_name=os.path.basename(path),
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+        else:
+            st.warning(f"⚠️ {label} belum tersedia di server.")
 
 # ====== PAGE 1: MONITORING SETUP USER ======
 if page == "📊 Monitoring Setup User":
