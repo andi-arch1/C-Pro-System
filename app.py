@@ -42,9 +42,9 @@ if page == "📂 File Repository":
     # ====== Tambahan: Download Template File ======
     st.subheader("⬇️ Download Template File")
     files_to_download = {
-        "📌 Branch File": "data/branch_template.xlsx",
-        "📌 Workingpaper File": "data/wp_template.xlsx",
-        "📌 Cover Central File": "data/central_template.xlsx"
+        "📌 Branch File": "data/BRANCH.xlsx",
+        "📌 Workingpaper File": "data/WORKINGPAPERBATCH2.xlsx",
+        "📌 Cover Central File": "data/COVERCENTRAL.xlsx"
     }
 
     for label, path in files_to_download.items():
