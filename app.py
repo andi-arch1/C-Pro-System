@@ -22,17 +22,17 @@ if page == "📂 File Repository":
         "📌 Workingpaper File": "https://raw.githubusercontent.com/andi-arch1/randomsampling/main/WORKINGPAPERBATCH2.xlsx",
         "📌 Cover Central File": "https://raw.githubusercontent.com/andi-arch1/randomsampling/main/COVERCENTRAL.xlsx"
     }
-    for label, path in files_to_download.items():
-        if os.path.exists(path):
-            with open(path, "rb") as f:
-                st.download_button(
-                    label=f"⬇️ Download {label}",
-                    data=f,
-                    file_name=os.path.basename(path),
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
+    for label, url in files_to_download.items():
+        response = requests.get(url)
+        if response.status_code == 200:
+            st.download_button(
+                label=f"⬇️ Download {label}",
+                data=response.content,
+                file_name=url.split("/")[-1],
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         else:
-            st.warning(f"⚠️ {label} belum tersedia di server.")
+            st.warning(f"⚠️ {label} gagal dimuat dari GitHub.")
 
 # ====== PAGE 1: MONITORING SETUP USER ======
 if page == "📊 Monitoring Setup User":
