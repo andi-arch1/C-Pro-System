@@ -18,11 +18,10 @@ if page == "📂 File Repository":
     st.subheader("⬇️ Download Template File")
 
     files_to_download = {
-        "📌 Branch File": "BRANCH.xlsx",
-        "📌 Workingpaper File": "WORKINGPAPERBATCH2.xlsx",
-        "📌 Cover Central File": "COVERCENTRAL.xlsx"
+        "📌 Branch File": "https://raw.githubusercontent.com/andi-arch1/randomsampling/main/BRANCH.xlsx",
+        "📌 Workingpaper File": "https://raw.githubusercontent.com/andi-arch1/randomsampling/main/WORKINGPAPERBATCH2.xlsx",
+        "📌 Cover Central File": "https://raw.githubusercontent.com/andi-arch1/randomsampling/main/COVERCENTRAL.xlsx"
     }
-
     for label, path in files_to_download.items():
         if os.path.exists(path):
             with open(path, "rb") as f:
