@@ -13,34 +13,10 @@ page = st.sidebar.radio(
 
 # ====== PAGE 0: FILE REPOSITORY ======
 if page == "📂 File Repository":
-    st.title("📂 File Repository (Upload Sekali, Pakai di Semua Menu)")
+    st.title("📂 File Repository (Download Template File)")
 
-    # Upload Branch File
-    branch_repo = st.file_uploader("📥 Upload Branch File", type=["xlsx"], key="repo_branch")
-    if branch_repo:
-        st.success("✅ Branch file tersimpan di repository")
-
-    # Upload Workingpaper File
-    wp_repo = st.file_uploader("📥 Upload Workingpaper File", type=["xlsx"], key="repo_wp")
-    if wp_repo:
-        st.success("✅ Workingpaper file tersimpan di repository")
-
-    # Upload Cover Central File
-    central_repo = st.file_uploader("📥 Upload Cover Central File", type=["xlsx"], key="repo_central")
-    if central_repo:
-        st.success("✅ Cover Central file tersimpan di repository")
-
-    # Preview file yang sudah tersimpan
-    st.subheader("📋 File Tersimpan")
-    if st.session_state.get("repo_branch") is not None:
-        st.write("📌 Branch File:", st.session_state["repo_branch"].name)
-    if st.session_state.get("repo_wp") is not None:
-        st.write("📌 Workingpaper File:", st.session_state["repo_wp"].name)
-    if st.session_state.get("repo_central") is not None:
-        st.write("📌 Cover Central File:", st.session_state["repo_central"].name)
-
-    # ====== Tambahan: Download Template File ======
     st.subheader("⬇️ Download Template File")
+
     files_to_download = {
         "📌 Branch File": "BRANCH.xlsx",
         "📌 Workingpaper File": "WORKINGPAPERBATCH2.xlsx",
