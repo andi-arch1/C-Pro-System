@@ -149,56 +149,112 @@ if page == "📊 Monitoring Setup User":
 # ====== PAGE 2: RANDOM SAMPLING ======
 elif page == "🎯 Random Sampling dari Excel":
     st.subheader("📥 Random Sampling dari Excel")
-    st.markdown("""Upload file Excel yang ingin Anda gunakan untuk **Random Sampling** berdasarkan kolom yang dipilih.""")
+    fungsi = st.radio("🔧 Pilih Mode:", ["Network", "Central"])
 
-    uploaded_file = st.file_uploader("📝 Silakan upload file Excel kamu:", type=["xlsx"])
+    # Upload file utama
+    uploaded_file = st.file_uploader("📝 Upload file utama:", type=["xlsx"])
 
     if uploaded_file:
-        try:
-            df = pd.read_excel(uploaded_file)
-            st.success("✅ File berhasil dimuat!")
-            st.subheader("🔍 Pratinjau Data")
-            st.dataframe(df.head())
+        df = pd.read_excel(uploaded_file)
+        st.success("✅ File utama berhasil dimuat!")
+        st.dataframe(df.head())
 
-            # Pilih kolom untuk grouping (boleh lebih dari 1)
-            group_cols = st.multiselect("🧩 Pilih kolom pengelompokan (group by):", options=df.columns)
+        # =======================
+        # MODE NETWORK
+        # =======================
+        if fungsi == "Network":
+            st.info("📡 Mode: Network")
+            branch_col = st.selectbox("🏢 Pilih kolom Cabang:", df.columns)
 
-            # Pilih jumlah sample per grup
-            n_sample = st.slider("🎯 Jumlah sample per grup", min_value=1, max_value=100, value=6)
-
-            if group_cols and st.button("🚀 Jalankan Random Sampling"):
-                sampled_df = (
-                    df.groupby(group_cols, group_keys=False)
-                      .apply(lambda x: x.sample(n=min(n_sample, len(x)), random_state=42))
-                      .reset_index(drop=True)
+            # Opsional: pakai periode
+            use_period = st.checkbox("📅 Gunakan periode?")
+            if use_period:
+                period_col = st.selectbox("Pilih kolom Periode:", df.columns)
+                min_period, max_period = st.select_slider(
+                    "Range Periode:",
+                    options=sorted(df[period_col].unique()),
+                    value=(df[period_col].min(), df[period_col].max())
                 )
+                df = df[df[period_col].between(min_period, max_period)]
 
-                st.subheader("📄 Hasil Random Sampling")
+            if st.button("🚀 Jalankan Sampling Network"):
+                sampled_list = []
+                for cabang, group in df.groupby(branch_col):
+                    # ambil max 30 sample per cabang
+                    n = min(30, len(group))
+                    sampled_list.append(group.sample(n=n, random_state=42))
+
+                sampled_df = pd.concat(sampled_list).reset_index(drop=True)
+                
+                st.subheader("📄 Hasil Random Sampling (Network)")
                 st.dataframe(sampled_df)
 
-                @st.cache_data
-                def convert_df_to_excel(df):
-                    from io import BytesIO
-                    output = BytesIO()
-                    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-                        df.to_excel(writer, index=False, sheet_name='Sampled')
-                    return output.getvalue()
-                
-                today_str = datetime.now().strftime("%d%b%Y")
-                excel_data = convert_df_to_excel(sampled_df)
-                st.download_button(
-                    label="📥 Download Hasil Sampling (.xlsx)",
-                    data=excel_data,
-                    file_name=f"hasil_sampling{today_str}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        # =======================
+        # MODE CENTRAL
+        # =======================
+        elif fungsi == "Central":
+            mapping_file = st.file_uploader("🗂️ Upload file mapping central:", type=["xlsx"])
+            if mapping_file:
+                df_map = pd.read_excel(mapping_file)
+                st.success("✅ Mapping central berhasil dimuat!")
+                st.dataframe(df_map.head())
+
+                central_function = st.selectbox(
+                    "🏢 Pilih Function Central:",
+                    ["COVER CENTRAL CREDIT", "COVER CENTRAL REMEDIAL", "COVER CENTRAL IWM"]
                 )
+                join_col = st.selectbox("🔑 Pilih kolom penghubung (di file utama):", df.columns)
 
-        except Exception as e:
-            st.error(f"❌ Gagal membaca file: {e}")
-    else:
-        st.info("📝 Silakan upload file Excel terlebih dahulu.")
+                total_sample = st.number_input("🎯 Total sample per Central", min_value=1, value=30)
+                extra_group_col = st.multiselect("🧩 Tambah kolom untuk group by (opsional):", df.columns)
 
+                if st.button("🚀 Jalankan Sampling Central"):
+                    merged_df = df.merge(df_map, left_on=join_col, right_on="ID CABANG", how="left")
 
+                    final_list = []
+
+                    # Loop per central
+                    for central_name, group in merged_df.groupby(central_function):
+                        cabang_count = group["ID CABANG"].nunique()
+                        if cabang_count == 0:
+                            continue
+
+                        # target maksimal sample per central
+                        remaining = total_sample
+                        sample_per_cabang = max(1, total_sample // cabang_count)
+
+                        for cabang_id, cabang_group in group.groupby("ID CABANG"):
+                            if extra_group_col:
+                                for _, sub_group in cabang_group.groupby(extra_group_col):
+                                    n = min(sample_per_cabang, len(sub_group))
+                                    remaining -= n
+                                    final_list.append(sub_group.sample(n=n, random_state=42))
+                            else:
+                                n = min(sample_per_cabang, len(cabang_group))
+                                remaining -= n
+                                final_list.append(cabang_group.sample(n=n, random_state=42))
+
+                        # Kalau masih ada sisa slot, tambahin ke cabang yg punya data lebih
+                        if remaining > 0:
+                            for cabang_id, cabang_group in group.groupby("ID CABANG"):
+                                if remaining <= 0:
+                                    break
+                                extra_n = min(remaining, len(cabang_group) - sample_per_cabang)
+                                if extra_n > 0:
+                                    final_list.append(cabang_group.sample(n=extra_n, random_state=42))
+                                    remaining -= extra_n
+
+                    if final_list:
+                        sampled_df = pd.concat(final_list).reset_index(drop=True)
+
+                        # Drop kolom mapping (COVER CENTRAL)
+                        cols_to_drop = [col for col in sampled_df.columns if col.startswith("COVER CENTRAL")]
+                        sampled_df = sampled_df.drop(columns=cols_to_drop, errors="ignore")
+
+                        st.subheader(f"📄 Hasil Random Sampling (Central - {central_function})")
+                        st.dataframe(sampled_df)
+                    else:
+                        st.warning("⚠️ Tidak ada data yang bisa di-sampling.")
 # ====== PAGE 3: KOMPARASI PROGRESS ======
 elif page == "📈 Komparasi Progress":
     st.title("📈 Komparasi Progress")
