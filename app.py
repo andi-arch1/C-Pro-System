@@ -226,13 +226,14 @@ elif page == "🎯 Random Sampling dari Excel":
                     "🏢 Pilih Function Central:",
                     ["COVER CENTRAL CREDIT", "COVER CENTRAL REMEDIAL", "COVER CENTRAL IWM"]
                 )
-                join_col = st.selectbox("🔑 Pilih kolom penghubung (di file utama):", df.columns)
+                left_col = st.selectbox("🔑 Pilih kolom penghubung (File Utama):", df.columns)
+                right_col = st.selectbox("🔑 Pilih kolom penghubung (File Mapping):", df_map.columns)
 
                 total_sample = st.number_input("🎯 Total sample per Central", min_value=1, value=30)
                 extra_group_col = st.multiselect("🧩 Tambah kolom untuk group by (opsional):", df.columns)
 
                 if st.button("🚀 Jalankan Sampling Central"):
-                    merged_df = df.merge(df_map, left_on=join_col, right_on="ID CABANG", how="left")
+                    merged_df = df.merge(df_map, left_on=left_col, right_on=right_col, how="left")
 
                     final_list = []
 
