@@ -580,7 +580,7 @@ elif page == "🗂 Monitoring WP Progress":
 
             styled_table = branch_progress.style.applymap(
                 highlight_progress, subset=["Persentase (%)"]
-            ).format({"Persentase (%)": "{:.2f}%"})
+            ).format({"Persentase (%)": "{:.0f}%"})
 
             st.dataframe(styled_table, use_container_width=True)
             # ---------- DOWNLOAD ----------
